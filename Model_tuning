@@ -1,0 +1,258 @@
+import pandas as pd
+import seaborn as sns
+
+# Load cleaned Titanic data
+df = sns.load_dataset('titanic')
+
+# Data Preprocessing
+df['age'] = df['age'].fillna(df['age'].median())
+df['embarked'] = df['embarked'].fillna(df['embarked'].mode()[0])
+df['embark_town'] = df['embark_town'].fillna(df['embark_town'].mode()[0])
+df = df.drop('deck', axis=1)
+df = df.drop_duplicates()
+df['family_size'] = df['sibsp'] + df['parch'] + 1
+
+df.info()
+
+print(df.head())
+
+
+
+
+df_encoded = pd.get_dummies(df, columns = ['sex','embarked'], drop_first = True)
+
+
+df_encoded = pd.get_dummies(df_encoded, columns=['class'], drop_first=True)
+
+
+print(df_encoded)
+
+
+# Feature Standardization
+from sklearn.preprocessing import StandardScaler, PowerTransformer
+
+scaler = StandardScaler()
+
+df_encoded[["age","family_size"]] = scaler.fit_transform(df_encoded[["age","family_size"]])
+
+pt = PowerTransformer(method = 'yeo-johnson')
+df_encoded['fare'] = pt.fit_transform(df_encoded[["fare"]])
+
+
+
+print(df_encoded.head(5))
+
+
+
+
+# Feature Selection for Model Training
+
+drop_col = ['survived','who','embark_town','alive','adult_male','alone']  # Multicolinear and target Features
+
+drop_col = [col for col in drop_col if col in df_encoded.columns]
+x = df_encoded.drop(drop_col,axis = 1)
+y = df_encoded['survived']
+
+
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(x,y, test_size = 0.2, random_state = 42, stratify = y)
+
+
+
+from sklearn.linear_model import LogisticRegression
+model = LogisticRegression(max_iter = 1000)
+model.fit(x_train, y_train)
+
+
+y_pred = model.predict(x_test)
+
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+print("Accuracy:", accuracy_score(y_test, y_pred))
+
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+print("Classification Report:\n", classification_report(y_test, y_pred))
+
+
+
+
+
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
+
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# 1. Define the hyperparameter grid
+param_grid = {
+    'C': [0.01, 0.1, 1, 10, 100],         # Regularization strengths to try
+    'penalty': ['l2'],                    # Use L2 regularization (most common, prevents overfitting)
+    'solver': ['lbfgs', 'liblinear']      # Different optimization algorithms
+}
+
+# 2. Set up the grid search with 5-fold cross-validation
+grid_search = GridSearchCV(
+    LogisticRegression(max_iter=1000, random_state=42),
+    param_grid,
+    cv=5,              # Split data into 5 parts for validation
+    scoring='accuracy',# Use accuracy as the metric
+    n_jobs=-1          # Use all available CPU cores
+)
+
+# 3. Fit the model to the training data
+grid_search.fit(x_train, y_train)
+
+# 4. View the best hyperparameters and cross-validated accuracy
+print("Best Parameters:", grid_search.best_params_)
+print("Best Cross-Validated Accuracy:", grid_search.best_score_)
+
+# 5. Use the best model to predict on your test data
+best_model = grid_search.best_estimator_
+y_pred = best_model.predict(x_test)
+
+# 6. Evaluate the improved model
+print("Test Set Accuracy:", accuracy_score(y_test, y_pred))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("Classification Report:\n", classification_report(y_test, y_pred))
+
+
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# 1. Create Random Forest model with basic settings
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+
+# 2. Train the model on the training data
+rf.fit(x_train, y_train)
+
+# 3. Predict on test set
+y_pred_rf = rf.predict(x_test)
+
+# 4. Evaluate
+print("Random Forest - Test Accuracy:", accuracy_score(y_test, y_pred_rf))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_rf))
+print("Classification Report:\n", classification_report(y_test, y_pred_rf))
+
+
+
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+# Define the parameter grid to search
+param_grid = {
+    'n_estimators': [100, 200],
+    'max_depth': [None, 5, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'max_features': ['auto', 'sqrt', 'log2']
+}
+
+# Initialize a Random Forest classifier (you can keep random_state for reproducibility)
+rf = RandomForestClassifier(random_state=42) 
+
+# Initialize GridSearchCV with 5-fold cross-validation
+grid_search_rf = GridSearchCV(estimator=rf, param_grid=param_grid,
+                              cv=5, n_jobs=-1, scoring='accuracy')
+
+# Fit GridSearchCV on training data
+grid_search_rf.fit(x_train, y_train)
+
+# Best parameters and score from grid search
+print("Best Parameters:", grid_search_rf.best_params_)
+print("Best Cross-Validation Accuracy:", grid_search_rf.best_score_)
+
+# Use the best estimator to predict test data
+best_rf = grid_search_rf.best_estimator_
+y_pred_rf = best_rf.predict(x_test)
+
+# Evaluate model on test set
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+print("Test Accuracy after tuning:", accuracy_score(y_test, y_pred_rf))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_rf))
+print("Classification Report:\n", classification_report(y_test, y_pred_rf))
+
+
+# # Feature Engineering for further improvement
+
+
+# # Creating Feature based on Age categories
+
+# age_bins = [0, 12, 18, 35, 60, 80]
+# age_labels = ['Child', 'Teen', 'Adult', 'Middle_Aged', 'Senior']
+
+# df['age_group'] = pd.cut(df['age'], bins=age_bins, labels=age_labels, right=False)
+
+# # Convert to dummy variables
+# df = pd.get_dummies(df, columns=['age_group'], drop_first=True)
+
+
+
+# # Creating Feature based on Family Size
+
+# def family_size_group(size):
+#     if size == 1:
+#         return 'Alone'
+#     elif 2 <= size <= 4:
+#         return 'Small'
+#     else:
+#         return 'Large'
+
+# df['family_size_group'] = df['family_size'].apply(family_size_group)
+
+# # Encode family size group
+# df = pd.get_dummies(df, columns=['family_size_group'], drop_first=True)
+
+
+
+
+
+
+# # Feature Scaling and Model Training with engineered features
+
+# from sklearn.preprocessing import StandardScaler, PowerTransformer
+# from sklearn.model_selection import train_test_split
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# scaler = StandardScaler()
+# df[['age', 'family_size']] = scaler.fit_transform(df[['age', 'family_size']])
+
+# pt = PowerTransformer(method='yeo-johnson')
+# df['fare'] = pt.fit_transform(df[['fare']])
+
+# # Drop unnecessary columns same as before
+# drop_cols = ['survived', 'who', 'embark_town', 'alive', 'adult_male', 'alone']
+# drop_cols = [c for c in drop_cols if c in df.columns]
+
+# X = df.drop(columns=drop_cols)
+# y = df['survived']
+
+# # Train-test split with stratification
+# x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# # Train Random Forest with best parameters from grid search
+# best_rf = RandomForestClassifier(
+#     n_estimators=100, 
+#     max_depth=None, 
+#     min_samples_split=10, 
+#     min_samples_leaf=1,
+#     max_features='sqrt',
+#     random_state=42
+# )
+
+# best_rf.fit(x_train, y_train)
+
+# # Predict on test set
+# y_pred_rf = best_rf.predict(x_test)
+
+# # Evaluate results
+# print("Test Accuracy with engineered features:", accuracy_score(y_test, y_pred_rf))
+# print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_rf))
+# print("Classification Report:\n", classification_report(y_test, y_pred_rf))
